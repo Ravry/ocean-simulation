@@ -1,4 +1,7 @@
 #pragma once
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
 #include "buffer.h"
 #include "shader.h"
 #include "texture.h"
@@ -13,6 +16,8 @@ namespace Engine {
             void render();
             void refactor(int width, int height);
         private:
+            void draw_imgui();
+
             std::unique_ptr<Camera> camera;
             std::map<std::string, Shader> shaders;
         };

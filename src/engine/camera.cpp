@@ -43,14 +43,14 @@ namespace Engine {
                 glm::vec3 cameraUp = glm::vec3(0, 1, 0);
                 glm::vec3 cameraRight = glm::normalize(glm::cross(cameraFront, cameraUp));
 
-                position +=  (float)delta_time * 8.f * (input.z * cameraFront + input.y * cameraUp + input.x * cameraRight);
+                position +=  (float)delta_time * speed * (input.z * cameraFront + input.y * cameraUp + input.x * cameraRight);
                 matrix = glm::lookAt(position, position + cameraFront, cameraUp);
                 break;
             }
             case Orbit: {
                 double time {glfwGetTime()};
                 const float amplitude {18.f};
-                const float frequency {.2f};
+                float frequency {speed / (DEFAULT_CAMERA_SPEED * 2.f)};
                 matrix = glm::lookAt(glm::vec3(amplitude * cos(time * frequency), 14.f, amplitude * sin(time * frequency)), glm::vec3(0.f, -5.f, 0.f), glm::vec3(0.f, 1.f, 0.f));    
                 break;
             }

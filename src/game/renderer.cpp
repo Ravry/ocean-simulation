@@ -68,7 +68,7 @@ namespace Engine::Game {
             vao->attrib(0, 3, GL_FLOAT, GL_FALSE, 0);
             vao->bind_buffers(vbo->get_id(), ebo->get_id());            
         }
-        
+
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
@@ -93,6 +93,36 @@ namespace Engine::Game {
         }
     }
 
+    void Renderer::draw_imgui() {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGui::SetNextWindowBgAlpha(0.3f);
+
+        ImGui::Begin("miscellaneous");
+        {
+            if (ImGui::CollapsingHeader("information", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Text(std::format("fps: {}", 1.f / Time::Timer::delta_time).c_str());
+            }
+
+            if (ImGui::CollapsingHeader("camera-settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (ImGui::BeginCombo("camera-mode", camera_mode_to_string_view(camera->mode).data())) {
+                    bool is_selected {false};
+                    for (auto& camera_mode : {CameraMode::Free, CameraMode::Orbit}) {
+                        if (ImGui::Selectable(camera_mode_to_string_view(camera_mode).data(), is_selected)) camera->mode = camera_mode;
+                        if (is_selected) ImGui::SetItemDefaultFocus();
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::InputFloat("camera-speed", &camera->speed, 1.f, 10.f);
+            }
+        }
+        
+        ImGui::End();
+
+        ImGui::Render();
+    }
+
     void Renderer::render() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -105,6 +135,8 @@ namespace Engine::Game {
         vao->bind();
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
         Shader::unuse();
+
+        draw_imgui();
     }
 
     void Renderer::refactor(int width, int height) {

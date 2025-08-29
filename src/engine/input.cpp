@@ -38,9 +38,9 @@ namespace Engine {
             first_mouse = false;
         }
 
-        static float sensitivity = 10.f;
-        delta_x += (xpos - last_xpos) * sensitivity * Time::Timer::delta_time;
-        delta_y += (ypos - last_ypos) * sensitivity * Time::Timer::delta_time;
+        static float sensitivity = .04f;
+        delta_x += (xpos - last_xpos) * sensitivity;
+        delta_y += (ypos - last_ypos) * sensitivity;
 
         last_xpos = xpos;
         last_ypos = ypos;

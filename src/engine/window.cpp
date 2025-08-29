@@ -1,5 +1,6 @@
 #include "window.h"
 
+
 namespace Engine {
     double Time::Timer::delta_time {0};
 
@@ -26,11 +27,33 @@ namespace Engine {
             glfwTerminate();
         }
 
+        {
+            IMGUI_CHECKVERSION();
+            ImGui::CreateContext();
+            ImGuiIO& io = ImGui::GetIO(); (void)io;
+            ImGui::StyleColorsClassic();
+            ImGuiStyle& style = ImGui::GetStyle();
+            style.WindowRounding    = 12.0f;
+            style.ChildRounding     = 12.0f;
+            style.PopupRounding     = 12.0f;
+            style.FrameRounding     =  8.0f;
+            style.ScrollbarRounding = 12.0f;
+            style.GrabRounding      =  8.0f;
+            style.FrameBorderSize   =  1.0f;
+            style.WindowBorderSize  =  1.0f;
+            style.PopupBorderSize   =  1.0f;
+            ImGui_ImplGlfw_InitForOpenGL(window, true);
+            ImGui_ImplOpenGL3_Init("#version 330 core");
+        }
+
         renderer = std::make_unique<Game::Renderer>(width, height );
     }
 
     Window::~Window()
-    {
+    {        
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
         glfwDestroyWindow(window);
         glfwTerminate();
     }
@@ -50,6 +73,8 @@ namespace Engine {
 
             renderer->update(window, Time::Timer::delta_time);
             renderer->render();
+            
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             glfwSwapBuffers(window);
         }
