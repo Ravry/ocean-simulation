@@ -5,6 +5,11 @@ namespace Engine::Game {
         glm::vec3 position;
     };
 
+    std::unique_ptr<FBO> framebuffer;
+    std::unique_ptr<Texture> texture_framebuffer_color;
+    std::unique_ptr<Texture> texture_framebuffer_depth;
+
+
     std::unique_ptr<VAO> vao;
     std::unique_ptr<Buffer> vbo;
     std::unique_ptr<Buffer> ebo;
@@ -12,7 +17,7 @@ namespace Engine::Game {
     std::vector<uint32_t> indices; 
 
     Renderer::Renderer(float width, float height) {
-        camera = std::make_unique<Camera>(width, height, CameraMode::Orbit);
+        camera = std::make_unique<Camera>(903, 864, CameraMode::Orbit);
 
         shaders["default"] = Shader(
             ASSETS_DIR "shaders/default/vert.glsl",
@@ -23,6 +28,56 @@ namespace Engine::Game {
             ASSETS_DIR "shaders/ocean/vert.glsl",
             ASSETS_DIR "shaders/ocean/frag.glsl"
         );
+
+        framebuffer = std::make_unique<FBO>();
+        
+        {
+            Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
+            create_info.width = 903;
+            create_info.height = 864;
+            create_info.format = GL_RGB8;
+            create_info.filter = GL_LINEAR;
+            create_info.wrap = GL_CLAMP_TO_EDGE;
+            texture_framebuffer_color = std::make_unique<Texture>(create_info);
+        }
+
+        {
+            Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
+            create_info.width = 903;
+            create_info.height = 864;
+            create_info.format = GL_DEPTH_COMPONENT24;
+            create_info.filter = GL_LINEAR;
+            create_info.wrap = GL_CLAMP_TO_EDGE;
+            texture_framebuffer_depth = std::make_unique<Texture>(create_info);  
+        }
+
+        framebuffer->attach(GL_COLOR_ATTACHMENT0, texture_framebuffer_color->get_id());
+        framebuffer->attach(GL_DEPTH_ATTACHMENT, texture_framebuffer_depth->get_id());
+            
+        GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
+        glNamedFramebufferDrawBuffers(framebuffer->get_id(), 1, drawBuffers);
+
+        GLenum status = glCheckNamedFramebufferStatus(framebuffer->get_id(), GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            std::cerr << "Framebuffer not complete! Status: " << status << std::endl;
+            
+            // Print more detailed error info
+            switch (status) {
+                case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+                    std::cerr << "Incomplete attachment" << std::endl;
+                    break;
+                case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+                    std::cerr << "Missing attachment" << std::endl;
+                    break;
+                case GL_FRAMEBUFFER_UNSUPPORTED:
+                    std::cerr << "Unsupported framebuffer format" << std::endl;
+                    break;
+                case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+                    std::cerr << "Incomplete multisample" << std::endl;
+                    break;
+            }
+        }
+
 
         {
             constexpr size_t SIZE { 20 };
@@ -76,6 +131,7 @@ namespace Engine::Game {
         glEnable(GL_BLEND);  
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
         glClearColor(.12f, .12f, .12f, 1.f);
+        glViewport(0, 0, 903, 864);
     }
         
     void Renderer::update(GLFWwindow* window, float delta_time) {
@@ -98,22 +154,23 @@ namespace Engine::Game {
     void ShowDockspace()
     {
         static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-
+        
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
         ImGui::SetNextWindowViewport(viewport->ID);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-
-        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-                        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-        window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        
+        ImGuiWindowFlags window_flags = 
+            ImGuiWindowFlags_NoDocking  |   ImGuiWindowFlags_NoTitleBar             | 
+            ImGuiWindowFlags_NoCollapse |   ImGuiWindowFlags_NoResize               | 
+            ImGuiWindowFlags_NoMove     |   ImGuiWindowFlags_NoBringToFrontOnFocus  | 
+            ImGuiWindowFlags_NoNavFocus;
 
         ImGui::Begin("MainDockspace", nullptr, window_flags);
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(3);
 
         ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 
@@ -125,11 +182,16 @@ namespace Engine::Game {
 
     void Renderer::draw_imgui() {
 
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::Begin("viewport");
         {
-            //TODO: draw framebuffer texture
+            ImVec2 content_region_metrics_size = ImGui::GetContentRegionAvail();
+            ImGui::Image((void*)(intptr_t)texture_framebuffer_color->get_id(), content_region_metrics_size, ImVec2(0, 1), ImVec2(1, 0));
         }
         ImGui::End();
+        ImGui::PopStyleVar(3);
 
         ImGui::Begin("miscellaneous");
         {
@@ -219,6 +281,8 @@ namespace Engine::Game {
     }
 
     void Renderer::render() {
+        framebuffer->bind();
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shaders["ocean"]
@@ -230,6 +294,8 @@ namespace Engine::Game {
         vao->bind();
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
         Shader::unuse();
+
+        FBO::unbind();
 
         ShowDockspace();
         draw_imgui();

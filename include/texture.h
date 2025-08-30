@@ -12,9 +12,12 @@ namespace Engine {
     public:
         struct TextureCreateInfo {
             GLenum target;
-            const char* file_path;
+            std::string_view file_path;
             unsigned int width;
             unsigned int height;
+            GLenum format;
+            GLenum filter;
+            GLenum wrap;
             std::map<unsigned int, std::string_view> layer_path_map;
             void* data_buffer;
         };
@@ -22,6 +25,7 @@ namespace Engine {
         Texture(const TextureCreateInfo& create_info);
         ~Texture();
         void bind(GLuint unit = 0);
+        unsigned int get_id() { return id; }
 
     private:
         unsigned int id;

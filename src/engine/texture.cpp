@@ -7,15 +7,13 @@ namespace Engine {
 
         switch (target) {
             case GL_TEXTURE_2D: {
-                glTextureParameteri(id, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTextureParameteri(id, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-                glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                glTextureParameteri(id, GL_TEXTURE_WRAP_S, create_info.wrap);
+                glTextureParameteri(id, GL_TEXTURE_WRAP_T, create_info.wrap);
+                glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, create_info.filter);
+                glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, create_info.filter);
 
-                int w, h, channels;
-                unsigned char* data = stbi_load(create_info.file_path, &w, &h, &channels, 4);
+                glTextureStorage2D(id, 1, create_info.format, create_info.width, create_info.height);
 
-                stbi_image_free(data);
                 break;
             }
         }

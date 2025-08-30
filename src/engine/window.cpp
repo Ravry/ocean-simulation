@@ -35,15 +35,6 @@ namespace Engine {
             io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; 
             ImGui::StyleColorsClassic();
             ImGuiStyle& style = ImGui::GetStyle();
-            style.WindowRounding    = 12.0f;
-            style.ChildRounding     = 12.0f;
-            style.PopupRounding     = 12.0f;
-            style.FrameRounding     =  8.0f;
-            style.ScrollbarRounding = 12.0f;
-            style.GrabRounding      =  8.0f;
-            style.FrameBorderSize   =  1.0f;
-            style.WindowBorderSize  =  1.0f;
-            style.PopupBorderSize   =  1.0f;
             ImGui_ImplGlfw_InitForOpenGL(window, true);
             ImGui_ImplOpenGL3_Init("#version 330 core");
             ImPlot::CreateContext();

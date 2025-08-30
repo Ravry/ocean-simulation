@@ -25,6 +25,16 @@ namespace Engine {
             void attrib(GLuint index, GLint size, GLenum type, GLboolean normalized, GLuint offset);
     };
 
+    class FBO : public GL_Object {
+        public:
+            FBO();
+            ~FBO();
+            void attach(GLenum attachment, GLuint texture);
+            void bind(GLenum target = GL_FRAMEBUFFER);
+            static void unbind();
+    };
+
+
     class SSBO : public GL_Object {
     public:
         SSBO();

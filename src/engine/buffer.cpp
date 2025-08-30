@@ -35,6 +35,26 @@ namespace Engine {
         glEnableVertexArrayAttrib(id, index);
         glVertexArrayAttribFormat(id, index, size, type, normalized, offset);
     }
+
+    FBO::FBO() {
+        glCreateFramebuffers(1, &id);
+    }
+
+    FBO::~FBO() { 
+        glDeleteFramebuffers(1, &id);
+    }
+
+    void FBO::attach(GLenum attachment, GLuint texture) {
+        glNamedFramebufferTexture(id, attachment, texture, 0);
+    }
+
+    void FBO::bind(GLenum target) { 
+        glBindFramebuffer(target, id);
+    }
+
+    void FBO::unbind() {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
     
     SSBO::SSBO() {
         glCreateBuffers(1, &id);
