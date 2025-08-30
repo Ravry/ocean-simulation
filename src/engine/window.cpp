@@ -30,7 +30,9 @@ namespace Engine {
         {
             IMGUI_CHECKVERSION();
             ImGui::CreateContext();
-            ImGuiIO& io = ImGui::GetIO(); (void)io;
+            ImGuiIO& io = ImGui::GetIO();
+            io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+            io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; 
             ImGui::StyleColorsClassic();
             ImGuiStyle& style = ImGui::GetStyle();
             style.WindowRounding    = 12.0f;
@@ -44,6 +46,7 @@ namespace Engine {
             style.PopupBorderSize   =  1.0f;
             ImGui_ImplGlfw_InitForOpenGL(window, true);
             ImGui_ImplOpenGL3_Init("#version 330 core");
+            ImPlot::CreateContext();
         }
 
         renderer = std::make_unique<Game::Renderer>(width, height );
@@ -51,6 +54,7 @@ namespace Engine {
 
     Window::~Window()
     {        
+        ImPlot::DestroyContext();
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
@@ -72,10 +76,20 @@ namespace Engine {
             glfwPollEvents();
 
             renderer->update(window, Time::Timer::delta_time);
-            renderer->render();
             
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
 
+            renderer->render();
+
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            GLFWwindow* backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+            
             glfwSwapBuffers(window);
         }
     }

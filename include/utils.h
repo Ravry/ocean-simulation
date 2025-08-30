@@ -7,6 +7,9 @@
 #include <sstream>
 #include <print>
 #include <format>
+#include <complex>
+#include <cmath>
+#include <numbers>
 
 namespace {
     constexpr const char* COLOR_RESET   = "\033[0m";
@@ -46,6 +49,12 @@ namespace Utils {
 
     static std::string_view get_file_name(std::string_view path) {
         return std::filesystem::path(path).filename().string();
+    }
+
+    static std::complex<double> complex_exp(double x) {
+        constexpr std::complex<double> i(0, 1);
+        std::complex<double> result = exp(x * i);
+        return result;
     }
 }
 

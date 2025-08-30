@@ -2,10 +2,12 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+#include <implot.h>
 #include "buffer.h"
 #include "shader.h"
 #include "texture.h"
 #include "camera.h"
+#include "utils.h"
 
 namespace Engine {
     namespace Game {

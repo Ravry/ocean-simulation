@@ -51,7 +51,8 @@ namespace Engine {
                 double time {glfwGetTime()};
                 const float amplitude {18.f};
                 float frequency {speed / (DEFAULT_CAMERA_SPEED * 2.f)};
-                matrix = glm::lookAt(glm::vec3(amplitude * cos(time * frequency), 14.f, amplitude * sin(time * frequency)), glm::vec3(0.f, -5.f, 0.f), glm::vec3(0.f, 1.f, 0.f));    
+                position = glm::vec3(amplitude * cos(time * frequency), 14.f, amplitude * sin(time * frequency));
+                matrix = glm::lookAt(position, glm::vec3(0.f, -5.f, 0.f), glm::vec3(0.f, 1.f, 0.f));    
                 break;
             }
         }

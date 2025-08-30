@@ -8,12 +8,12 @@ in VS_OUT  {
 } fs_in;
 
 float calc_lighting(vec3 normal) {
-    const vec3 light_direction = vec3(0, -1, 0);
+    const vec3 light_direction = normalize(vec3(0, -1, 0));
     float result = max(dot(normal, -light_direction), .2);
     return result;
 }
 
 void main() {
     float lighting = calc_lighting(fs_in.normal); 
-    color = vec4(lighting * vec3(0, 0, 1), 1);
+    color = vec4(lighting * vec3(0, 0, 1), 1.f);
 }

@@ -38,4 +38,8 @@ namespace Engine {
 
             glm::mat4 get_projection() { return projection; }
     };
+
+    static std::string_view camera_position_to_string_view(Camera& camera) {
+        return std::format("({:.2f}; {:.2f}; {:.2f})", camera.position.x,  camera.position.y, camera.position.z);
+    }
 }

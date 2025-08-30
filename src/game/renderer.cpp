@@ -73,6 +73,8 @@ namespace Engine::Game {
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);  
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
         glClearColor(.12f, .12f, .12f, 1.f);
     }
         
@@ -93,34 +95,127 @@ namespace Engine::Game {
         }
     }
 
+    void ShowDockspace()
+    {
+        static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(viewport->WorkSize);
+        ImGui::SetNextWindowViewport(viewport->ID);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+        window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+        ImGui::Begin("MainDockspace", nullptr, window_flags);
+        ImGui::PopStyleVar(2);
+
+        ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
+
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+
+        ImGui::End();
+    }
+
+
     void Renderer::draw_imgui() {
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        ImGui::SetNextWindowBgAlpha(0.3f);
+
+        ImGui::Begin("viewport");
+        {
+            //TODO: draw framebuffer texture
+        }
+        ImGui::End();
 
         ImGui::Begin("miscellaneous");
         {
             if (ImGui::CollapsingHeader("information", ImGuiTreeNodeFlags_DefaultOpen)) {
                 ImGui::Text(std::format("fps: {}", 1.f / Time::Timer::delta_time).c_str());
+                ImGui::Text(std::format("eye: {}", camera_position_to_string_view(*camera).data()).c_str());
             }
 
             if (ImGui::CollapsingHeader("camera-settings", ImGuiTreeNodeFlags_DefaultOpen)) {
                 if (ImGui::BeginCombo("camera-mode", camera_mode_to_string_view(camera->mode).data())) {
                     bool is_selected {false};
                     for (auto& camera_mode : {CameraMode::Free, CameraMode::Orbit}) {
-                        if (ImGui::Selectable(camera_mode_to_string_view(camera_mode).data(), is_selected)) camera->mode = camera_mode;
+                        if (ImGui::Selectable(camera_mode_to_string_view(camera_mode).data(), is_selected)) 
+                            camera->mode = camera_mode;
                         if (is_selected) ImGui::SetItemDefaultFocus();
                     }
                     ImGui::EndCombo();
                 }
                 ImGui::InputFloat("camera-speed", &camera->speed, 1.f, 10.f);
             }
-        }
-        
-        ImGui::End();
 
-        ImGui::Render();
+            if (ImGui::CollapsingHeader("ocean-settings", ImGuiTreeNodeFlags_DefaultOpen)) {}
+        
+            if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
+                constexpr double M_TAU = 2. * std::numbers::pi;
+                
+                constexpr size_t NUM_SAMPLES_SCATTER = 20;
+                static float x_coords_scatter[NUM_SAMPLES_SCATTER] {};
+                static float y_coords_scatter[NUM_SAMPLES_SCATTER] {};
+
+                constexpr size_t NUM_SAMPLES_SIGNAL = 100;
+                static float x_coords_signal[NUM_SAMPLES_SIGNAL] {};
+                static float y_coords_signal[NUM_SAMPLES_SIGNAL] {};
+                
+                static bool once {false};
+                if (!once) {
+                    once = true;    
+                    {
+                        size_t j {0};
+                        for (float i {0.f}; i < M_TAU; i += M_TAU / (NUM_SAMPLES_SCATTER)) {
+                            std::complex<double> result = Utils::complex_exp(i);
+                            x_coords_scatter[j] = result.real();
+                            y_coords_scatter[j] = result.imag();
+                            j++;
+                        }
+
+                        x_coords_scatter[j] = x_coords_scatter[0];
+                        y_coords_scatter[j] = y_coords_scatter[0];
+                    }
+                    
+                    {
+                        size_t j {0};
+                        for (float i {0.f}; i <= M_TAU; i += M_TAU/NUM_SAMPLES_SIGNAL) {
+                            double signal_out = std::sin(i);
+                            x_coords_signal[j] = i;
+                            y_coords_signal[j] = signal_out;
+                            j++;
+                        }    
+                    }
+                }
+                
+                {
+                    if (ImPlot::BeginPlot("fourier-visual", ImVec2(300, 300), ImPlotFlags_Equal)) {
+                        ImPlot::PlotLine("point", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SCATTER + 1);
+                        ImPlot::EndPlot();
+                    }
+
+                    ImGui::SameLine();
+
+                    if (ImPlot::BeginPlot("signal", ImVec2(300, 300), ImPlotFlags_Equal)) {
+                        ImPlot::PlotLine("line", x_coords_signal, y_coords_signal, NUM_SAMPLES_SIGNAL);
+                        ImPlot::EndPlot();
+                    }
+                }
+                
+                ImGui::Spacing();
+
+                {
+                    if (ImPlot::BeginPlot("spectrum", ImVec2(607, 300), ImPlotFlags_Equal)) {
+                        ImPlot::EndPlot();
+                    }
+                }
+
+            }
+        }
+        ImGui::End();
     }
 
     void Renderer::render() {
@@ -136,6 +231,7 @@ namespace Engine::Game {
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
         Shader::unuse();
 
+        ShowDockspace();
         draw_imgui();
     }
 
