@@ -179,6 +179,9 @@ namespace Engine::Game {
     }
 
     void draw_imgui_graph_preview_header() {
+        static double timer = 0.f;
+        timer += Time::Timer::delta_time;
+
         constexpr double M_TAU = 2. * std::numbers::pi;
 
         constexpr double SIGNAL_TOTAL_DURATION = M_TAU;
@@ -189,9 +192,9 @@ namespace Engine::Game {
 
         static double x_coords_scatter[NUM_SAMPLES_SIGNAL + 1] {};
         static double y_coords_scatter[NUM_SAMPLES_SIGNAL + 1] {};
-        
-        static double frequency_spectrum[NUM_SAMPLES_SIGNAL/2 + 1];
-        static double energy_spectrum[NUM_SAMPLES_SIGNAL/2 + 1];
+
+        static double frequency_spectrum[(NUM_SAMPLES_SIGNAL/2) + 1] {};
+        static double energy_spectrum[(NUM_SAMPLES_SIGNAL/2) + 1] {};
         
         {
             static bool once {false};
@@ -199,39 +202,60 @@ namespace Engine::Game {
                 {
                     for (size_t i {0}; i <= NUM_SAMPLES_SIGNAL; i ++) {
                         double signal_in = ((double)i/NUM_SAMPLES_SIGNAL) * SIGNAL_TOTAL_DURATION;
-                        double signal_out = std::sin(signal_in) + std::sin(5.f * signal_in);
+                        double signal_out = 
+                            1.f * std::sin( 1.f * signal_in) + 
+                            .2f * std::sin( 5.f * signal_in) + 
+                            .5f * std::sin(10.f * signal_in) + 
+                           .75f * std::cos( 7.f * signal_in);
                         x_coords_signal[i] = signal_in;
                         y_coords_signal[i] = signal_out;
                     }    
                 }
-
-                {
-                    double sampling_rate = NUM_SAMPLES_SIGNAL / SIGNAL_TOTAL_DURATION;
-                    double nyquist_frequency = sampling_rate / 2.0;
-                    for (size_t j {0}; j <= NUM_SAMPLES_SIGNAL/2; j++) {
-                        double frequency = (double)j * (sampling_rate / NUM_SAMPLES_SIGNAL);
-                        std::complex<double> sum(0, 0); 
-
-                        for (size_t i {0}; i <= NUM_SAMPLES_SIGNAL; i++) {
-                            double input = ((double)i/NUM_SAMPLES_SIGNAL) * SIGNAL_TOTAL_DURATION;
-                            sum += y_coords_signal[i] * Utils::complex_exp(-frequency, input);
-                        }
-
-                        double magnitude = std::abs(sum);
-                        
-                        frequency_spectrum[j] = frequency;
-                        energy_spectrum[j] = magnitude / NUM_SAMPLES_SIGNAL;
-                    }
-                }
-
                 once = true;                    
             }
         }
+
+        constexpr float DELTA_TIME_FOR_DESIRED_FPS = 1.f/20.f;
+        constexpr double sampling_rate = NUM_SAMPLES_SIGNAL / SIGNAL_TOTAL_DURATION;
+        constexpr double nyquist_frequency = sampling_rate / 2.0;
+        static size_t j {0};
+        
+        static double x_coord_center_of_mass[1];
+        static double y_coord_center_of_mass[1];
+
+        if (timer >= DELTA_TIME_FOR_DESIRED_FPS)
+        {
+            timer = 0;
+            if (j <= NUM_SAMPLES_SIGNAL/2) {
+                double frequency = (double)j * (sampling_rate / NUM_SAMPLES_SIGNAL);
+                std::complex<double> sum(0, 0); 
+                
+                for (size_t i {0}; i <= NUM_SAMPLES_SIGNAL; i++) {
+                    double input = ((double)i/NUM_SAMPLES_SIGNAL) * SIGNAL_TOTAL_DURATION;
+                    std::complex<double> result = y_coords_signal[i] * Utils::complex_exp(-frequency, input);
+                    sum += result;
+                    x_coords_scatter[i] = result.real();
+                    y_coords_scatter[i] = result.imag();
+                }
+                
+                x_coord_center_of_mass[0] = sum.real() / (NUM_SAMPLES_SIGNAL + 1);
+                y_coord_center_of_mass[0] = sum.imag() / (NUM_SAMPLES_SIGNAL + 1);
+                
+                double magnitude = std::abs(sum);
+                
+                frequency_spectrum[j] = frequency;
+                energy_spectrum[j] = magnitude / (NUM_SAMPLES_SIGNAL + 1);
+                j++;
+            }
+        }
+    
+
             
         if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
             {
                 if (ImPlot::BeginPlot("fourier-visual", ImVec2(300, 300), ImPlotFlags_Equal)) {
-                    ImPlot::PlotLine("point", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SIGNAL + 1);
+                    ImPlot::PlotLine("line", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SIGNAL + 1);
+                    ImPlot::PlotScatter("scatter", x_coord_center_of_mass, y_coord_center_of_mass, 1);
                     ImPlot::EndPlot();
                 }
 
@@ -247,7 +271,7 @@ namespace Engine::Game {
 
             {
                 if (ImPlot::BeginPlot("spectrum", ImVec2(607, 300), ImPlotFlags_Equal)) {
-                    ImPlot::PlotLine("line", frequency_spectrum, energy_spectrum, NUM_SAMPLES_SIGNAL/2 + 1);
+                    ImPlot::PlotLine("line", frequency_spectrum, energy_spectrum, (NUM_SAMPLES_SIGNAL/2) + 1);
                     ImPlot::EndPlot();
                 }
             }
