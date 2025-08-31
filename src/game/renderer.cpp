@@ -17,7 +17,7 @@ namespace Engine::Game {
     std::vector<uint32_t> indices; 
 
     Renderer::Renderer(float width, float height) {
-        camera = std::make_unique<Camera>(903, 864, CameraMode::Orbit);
+        camera = std::make_unique<Camera>(width, height, CameraMode::Orbit, 70.f);
 
         shaders["default"] = Shader(
             ASSETS_DIR "shaders/default/vert.glsl",
@@ -33,8 +33,8 @@ namespace Engine::Game {
         
         {
             Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
-            create_info.width = 903;
-            create_info.height = 864;
+            create_info.width = width;
+            create_info.height = height;
             create_info.format = GL_RGB8;
             create_info.filter = GL_LINEAR;
             create_info.wrap = GL_CLAMP_TO_EDGE;
@@ -43,8 +43,8 @@ namespace Engine::Game {
 
         {
             Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
-            create_info.width = 903;
-            create_info.height = 864;
+            create_info.width = width;
+            create_info.height = height;
             create_info.format = GL_DEPTH_COMPONENT24;
             create_info.filter = GL_LINEAR;
             create_info.wrap = GL_CLAMP_TO_EDGE;
@@ -131,7 +131,7 @@ namespace Engine::Game {
         glEnable(GL_BLEND);  
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
         glClearColor(.12f, .12f, .12f, 1.f);
-        glViewport(0, 0, 903, 864);
+        glViewport(0, 0, width, height);
     }
         
     void Renderer::update(GLFWwindow* window, float delta_time) {
@@ -148,6 +148,110 @@ namespace Engine::Game {
                 shader.second.reload();
             }
             out("shaders reloaded ...");
+        }
+    }
+
+    void draw_imgui_information_header(Camera* camera) {
+        if (ImGui::CollapsingHeader("information", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text(std::format("fps: {}", 1.f / Time::Timer::delta_time).c_str());
+            ImGui::Text(std::format("eye: {}", camera_position_to_string_view(camera).data()).c_str());
+        }
+    }
+
+    void draw_imgui_camera_settings_header(Camera* camera) {
+        if (ImGui::CollapsingHeader("camera-settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::BeginCombo("camera-mode", camera_mode_to_string_view(camera->mode).data())) {
+                bool is_selected {false};
+                for (auto& camera_mode : {CameraMode::Free, CameraMode::Orbit}) {
+                    if (ImGui::Selectable(camera_mode_to_string_view(camera_mode).data(), is_selected)) 
+                        camera->set_mode(camera_mode);
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::InputFloat("camera-speed", &camera->speed, 1.f, 10.f);
+        }
+
+    }
+
+    void draw_imgui_ocean_settings_header() {
+        if (ImGui::CollapsingHeader("ocean-settings", ImGuiTreeNodeFlags_DefaultOpen)) {}
+    }
+
+    void draw_imgui_graph_preview_header() {
+        constexpr double M_TAU = 2. * std::numbers::pi;
+
+        constexpr double SIGNAL_TOTAL_DURATION = M_TAU;
+        constexpr size_t NUM_SAMPLES_SIGNAL = 100;
+        
+        static double x_coords_signal[NUM_SAMPLES_SIGNAL + 1] {};
+        static double y_coords_signal[NUM_SAMPLES_SIGNAL + 1] {};
+
+        static double x_coords_scatter[NUM_SAMPLES_SIGNAL + 1] {};
+        static double y_coords_scatter[NUM_SAMPLES_SIGNAL + 1] {};
+        
+        static double frequency_spectrum[NUM_SAMPLES_SIGNAL/2 + 1];
+        static double energy_spectrum[NUM_SAMPLES_SIGNAL/2 + 1];
+        
+        {
+            static bool once {false};
+            if (!once) {
+                {
+                    for (size_t i {0}; i <= NUM_SAMPLES_SIGNAL; i ++) {
+                        double signal_in = ((double)i/NUM_SAMPLES_SIGNAL) * SIGNAL_TOTAL_DURATION;
+                        double signal_out = std::sin(signal_in) + std::sin(5.f * signal_in);
+                        x_coords_signal[i] = signal_in;
+                        y_coords_signal[i] = signal_out;
+                    }    
+                }
+
+                {
+                    double sampling_rate = NUM_SAMPLES_SIGNAL / SIGNAL_TOTAL_DURATION;
+                    double nyquist_frequency = sampling_rate / 2.0;
+                    for (size_t j {0}; j <= NUM_SAMPLES_SIGNAL/2; j++) {
+                        double frequency = (double)j * (sampling_rate / NUM_SAMPLES_SIGNAL);
+                        std::complex<double> sum(0, 0); 
+
+                        for (size_t i {0}; i <= NUM_SAMPLES_SIGNAL; i++) {
+                            double input = ((double)i/NUM_SAMPLES_SIGNAL) * SIGNAL_TOTAL_DURATION;
+                            sum += y_coords_signal[i] * Utils::complex_exp(-frequency, input);
+                        }
+
+                        double magnitude = std::abs(sum);
+                        
+                        frequency_spectrum[j] = frequency;
+                        energy_spectrum[j] = magnitude / NUM_SAMPLES_SIGNAL;
+                    }
+                }
+
+                once = true;                    
+            }
+        }
+            
+        if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
+            {
+                if (ImPlot::BeginPlot("fourier-visual", ImVec2(300, 300), ImPlotFlags_Equal)) {
+                    ImPlot::PlotLine("point", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SIGNAL + 1);
+                    ImPlot::EndPlot();
+                }
+
+                ImGui::SameLine();
+
+                if (ImPlot::BeginPlot("signal", ImVec2(300, 300), ImPlotFlags_Equal)) {
+                    ImPlot::PlotLine("line", x_coords_signal, y_coords_signal, NUM_SAMPLES_SIGNAL + 1);
+                    ImPlot::EndPlot();
+                }
+            }
+            
+            ImGui::Spacing();
+
+            {
+                if (ImPlot::BeginPlot("spectrum", ImVec2(607, 300), ImPlotFlags_Equal)) {
+                    ImPlot::PlotLine("line", frequency_spectrum, energy_spectrum, NUM_SAMPLES_SIGNAL/2 + 1);
+                    ImPlot::EndPlot();
+                }
+            }
+
         }
     }
 
@@ -209,16 +313,18 @@ namespace Engine::Game {
                     ImGui::Image((void*)(intptr_t)texture_framebuffer_color->get_id(), current_size, ImVec2(0, 1), ImVec2(1, 0));
                 }
                 static ImVec2 last_size { ImVec2(0, 0) };
-                static bool was_resizing { false };
+                static bool once { false };
+                static bool resizing { false };
                 bool size_changed = current_size.x != last_size.x || current_size.y != last_size.y;
 
                 if (size_changed) {
                     last_size = current_size;
-                    was_resizing = true;
+                    resizing = true;
                 }
-                else if (was_resizing && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                else if (resizing && (ImGui::IsMouseReleased(ImGuiMouseButton_Left) || !once)) {
+                    once = true;
                     refactor(current_size.x, current_size.y);
-                    was_resizing = false;
+                    resizing = false;
                 }
 
                 ImGui::End();
@@ -228,87 +334,10 @@ namespace Engine::Game {
             {
                 ImGui::Begin("miscellaneous");
                 {
-                    if (ImGui::CollapsingHeader("information", ImGuiTreeNodeFlags_DefaultOpen)) {
-                        ImGui::Text(std::format("fps: {}", 1.f / Time::Timer::delta_time).c_str());
-                        ImGui::Text(std::format("eye: {}", camera_position_to_string_view(*camera).data()).c_str());
-                    }
-
-                    if (ImGui::CollapsingHeader("camera-settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                        if (ImGui::BeginCombo("camera-mode", camera_mode_to_string_view(camera->mode).data())) {
-                            bool is_selected {false};
-                            for (auto& camera_mode : {CameraMode::Free, CameraMode::Orbit}) {
-                                if (ImGui::Selectable(camera_mode_to_string_view(camera_mode).data(), is_selected)) 
-                                    camera->set_mode(camera_mode);
-                                if (is_selected) ImGui::SetItemDefaultFocus();
-                            }
-                            ImGui::EndCombo();
-                        }
-                        ImGui::InputFloat("camera-speed", &camera->speed, 1.f, 10.f);
-                    }
-
-                    if (ImGui::CollapsingHeader("ocean-settings", ImGuiTreeNodeFlags_DefaultOpen)) {}
-                
-                    if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
-                        constexpr double M_TAU = 2. * std::numbers::pi;
-                        
-                        constexpr size_t NUM_SAMPLES_SCATTER = 20;
-                        static float x_coords_scatter[NUM_SAMPLES_SCATTER] {};
-                        static float y_coords_scatter[NUM_SAMPLES_SCATTER] {};
-
-                        constexpr size_t NUM_SAMPLES_SIGNAL = 100;
-                        static float x_coords_signal[NUM_SAMPLES_SIGNAL] {};
-                        static float y_coords_signal[NUM_SAMPLES_SIGNAL] {};
-                        
-                        static bool once {false};
-                        if (!once) {
-                            once = true;    
-                            {
-                                size_t j {0};
-                                for (float i {0.f}; i < M_TAU; i += M_TAU / (NUM_SAMPLES_SCATTER)) {
-                                    std::complex<double> result = Utils::complex_exp(i);
-                                    x_coords_scatter[j] = result.real();
-                                    y_coords_scatter[j] = result.imag();
-                                    j++;
-                                }
-
-                                x_coords_scatter[j] = x_coords_scatter[0];
-                                y_coords_scatter[j] = y_coords_scatter[0];
-                            }
-                            
-                            {
-                                size_t j {0};
-                                for (float i {0.f}; i <= M_TAU; i += M_TAU/NUM_SAMPLES_SIGNAL) {
-                                    double signal_out = std::sin(i);
-                                    x_coords_signal[j] = i;
-                                    y_coords_signal[j] = signal_out;
-                                    j++;
-                                }    
-                            }
-                        }
-                        
-                        {
-                            if (ImPlot::BeginPlot("fourier-visual", ImVec2(300, 300), ImPlotFlags_Equal)) {
-                                ImPlot::PlotLine("point", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SCATTER + 1);
-                                ImPlot::EndPlot();
-                            }
-
-                            ImGui::SameLine();
-
-                            if (ImPlot::BeginPlot("signal", ImVec2(300, 300), ImPlotFlags_Equal)) {
-                                ImPlot::PlotLine("line", x_coords_signal, y_coords_signal, NUM_SAMPLES_SIGNAL);
-                                ImPlot::EndPlot();
-                            }
-                        }
-                        
-                        ImGui::Spacing();
-
-                        {
-                            if (ImPlot::BeginPlot("spectrum", ImVec2(607, 300), ImPlotFlags_Equal)) {
-                                ImPlot::EndPlot();
-                            }
-                        }
-
-                    }
+                    draw_imgui_information_header(camera.get());
+                    draw_imgui_camera_settings_header(camera.get());
+                    draw_imgui_ocean_settings_header();
+                    draw_imgui_graph_preview_header();
                 }
                 ImGui::End();
             }

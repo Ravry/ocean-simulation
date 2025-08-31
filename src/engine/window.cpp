@@ -13,8 +13,6 @@ namespace Engine {
         window = glfwCreateWindow(width, height, title.data(), nullptr, nullptr);
         glfwSetWindowPos(window, 200, 100);
 
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
         glfwSetKeyCallback(window, Input::key_callback);
         glfwSetMouseButtonCallback(window, Input::mouse_button_callback);
         glfwSetCursorPosCallback(window, Input::mouse_callback);

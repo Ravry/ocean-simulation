@@ -1,8 +1,10 @@
 #include "camera.h"
 
 namespace Engine {
-    Camera::Camera(float width, float height, CameraMode mode) : Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)), mode(mode) {
-        projection = glm::perspective(glm::radians(60.f), width/height, .01f, 100.f);
+    Camera::Camera(float width, float height, CameraMode mode, float fov, float z_near, float z_far) 
+    : Transform(glm::vec3(0), glm::vec3(0), glm::vec3(1)), mode(mode), fov(fov), z_near(z_near), z_far(z_far) 
+    {
+        projection = glm::perspective(glm::radians(fov), width/height, z_near, z_far);
     }
 
     static bool mode_change_pending { false };
@@ -12,7 +14,7 @@ namespace Engine {
     }
 
     void Camera::update(GLFWwindow* window, float delta_time) {
-        static bool cursor_enabled {false};
+        static bool cursor_enabled {true};
         
         if (Input::is_key_pressed(GLFW_KEY_ESCAPE)) {
             cursor_enabled = true;
@@ -59,13 +61,13 @@ namespace Engine {
                 const float amplitude {18.f};
                 float frequency {speed / (DEFAULT_CAMERA_SPEED * 2.f)};
                 position = glm::vec3(amplitude * cos(time * frequency), 14.f, amplitude * sin(time * frequency));
-                matrix = glm::lookAt(position, glm::vec3(0.f, -5.f, 0.f), glm::vec3(0.f, 1.f, 0.f));    
+                matrix = glm::lookAt(position, glm::vec3(0.f, -7.f, 0.f), glm::vec3(0.f, 1.f, 0.f));    
                 break;
             }
         }
     }
 
     void Camera::refactor(float width, float height) {
-        projection = glm::perspective(glm::radians(60.f), width/height, .01f, 100.f);
+        projection = glm::perspective(glm::radians(fov), width/height, z_near, z_far);
     }
 }

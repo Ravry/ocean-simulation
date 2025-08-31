@@ -51,9 +51,9 @@ namespace Utils {
         return std::filesystem::path(path).filename().string();
     }
 
-    static std::complex<double> complex_exp(double x) {
+    static std::complex<double> complex_exp(double frequency, double time) {
         constexpr std::complex<double> i(0, 1);
-        std::complex<double> result = exp(x * i);
+        std::complex<double> result = exp(2.f * std::numbers::pi * frequency * i * time);
         return result;
     }
 }
