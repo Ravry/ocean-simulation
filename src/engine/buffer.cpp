@@ -44,12 +44,27 @@ namespace Engine {
         glDeleteFramebuffers(1, &id);
     }
 
-    void FBO::attach(GLenum attachment, GLuint texture) {
-        glNamedFramebufferTexture(id, attachment, texture, 0);
+    void FBO::attach(GLenum attachment, Texture* texture) {
+        glNamedFramebufferTexture(id, attachment, texture->get_id(), 0);
+        attachments.push_back(Attachment {
+            .type = GL_TEXTURE,
+            .attachment = attachment, 
+            .attachment_ptr = reinterpret_cast<void*>(texture)
+        });
     }
 
     void FBO::bind(GLenum target) { 
         glBindFramebuffer(target, id);
+    }
+
+    void FBO::refactor(unsigned int width, unsigned int height) {
+        for (const auto& attachment : attachments) {
+            if (attachment.type == GL_TEXTURE) {
+                Texture* texture_attachment = reinterpret_cast<Texture*>(attachment.attachment_ptr);
+                texture_attachment->refactor(width, height);
+                attach(attachment.attachment, texture_attachment);
+            }
+        }
     }
 
     void FBO::unbind() {

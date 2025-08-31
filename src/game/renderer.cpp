@@ -51,8 +51,8 @@ namespace Engine::Game {
             texture_framebuffer_depth = std::make_unique<Texture>(create_info);  
         }
 
-        framebuffer->attach(GL_COLOR_ATTACHMENT0, texture_framebuffer_color->get_id());
-        framebuffer->attach(GL_DEPTH_ATTACHMENT, texture_framebuffer_depth->get_id());
+        framebuffer->attach(GL_COLOR_ATTACHMENT0, texture_framebuffer_color.get());
+        framebuffer->attach(GL_DEPTH_ATTACHMENT, texture_framebuffer_depth.get());
             
         GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
         glNamedFramebufferDrawBuffers(framebuffer->get_id(), 1, drawBuffers);
@@ -151,133 +151,168 @@ namespace Engine::Game {
         }
     }
 
-    void ShowDockspace()
+    void Renderer::draw_imgui() 
     {
-        static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-        
-        const ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->WorkPos);
-        ImGui::SetNextWindowSize(viewport->WorkSize);
-        ImGui::SetNextWindowViewport(viewport->ID);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        
-        ImGuiWindowFlags window_flags = 
-            ImGuiWindowFlags_NoDocking  |   ImGuiWindowFlags_NoTitleBar             | 
-            ImGuiWindowFlags_NoCollapse |   ImGuiWindowFlags_NoResize               | 
-            ImGuiWindowFlags_NoMove     |   ImGuiWindowFlags_NoBringToFrontOnFocus  | 
-            ImGuiWindowFlags_NoNavFocus;
-
-        ImGui::Begin("MainDockspace", nullptr, window_flags);
-        ImGui::PopStyleVar(3);
-
-        ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
-
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-
-        ImGui::End();
-    }
-
-
-    void Renderer::draw_imgui() {
-
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::Begin("viewport");
         {
-            ImVec2 content_region_metrics_size = ImGui::GetContentRegionAvail();
-            ImGui::Image((void*)(intptr_t)texture_framebuffer_color->get_id(), content_region_metrics_size, ImVec2(0, 1), ImVec2(1, 0));
+            static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
+            
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(viewport->WorkPos);
+            ImGui::SetNextWindowSize(viewport->WorkSize);
+            ImGui::SetNextWindowViewport(viewport->ID);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+            
+            ImGuiWindowFlags window_flags = 
+                ImGuiWindowFlags_NoDocking  |   ImGuiWindowFlags_NoTitleBar             | 
+                ImGuiWindowFlags_NoCollapse |   ImGuiWindowFlags_NoResize               | 
+                ImGuiWindowFlags_NoMove     |   ImGuiWindowFlags_NoBringToFrontOnFocus  | 
+                ImGuiWindowFlags_NoNavFocus;
+
+            ImGui::Begin("MainDockspace", nullptr, window_flags);
+            ImGui::PopStyleVar(3);
+
+            ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
+            
+            static bool once {false};
+            if (!once) {
+                once = true;
+                
+                ImGui::DockBuilderRemoveNode(dockspace_id); 
+                ImGui::DockBuilderAddNode(dockspace_id, dockspace_flags | ImGuiDockNodeFlags_DockSpace);
+                ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->WorkSize);
+
+                ImGuiID dock_id_left, dock_id_right;
+                ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, .41f, &dock_id_left, &dock_id_right);
+
+                ImGui::DockBuilderDockWindow("viewport", dock_id_right);
+                ImGui::DockBuilderDockWindow("miscellaneous", dock_id_left);
+                
+                ImGui::DockBuilderFinish(dockspace_id);
+            }
+
+            ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+
+            ImGui::End();
         }
-        ImGui::End();
-        ImGui::PopStyleVar(3);
-
-        ImGui::Begin("miscellaneous");
+     
         {
-            if (ImGui::CollapsingHeader("information", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::Text(std::format("fps: {}", 1.f / Time::Timer::delta_time).c_str());
-                ImGui::Text(std::format("eye: {}", camera_position_to_string_view(*camera).data()).c_str());
-            }
-
-            if (ImGui::CollapsingHeader("camera-settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (ImGui::BeginCombo("camera-mode", camera_mode_to_string_view(camera->mode).data())) {
-                    bool is_selected {false};
-                    for (auto& camera_mode : {CameraMode::Free, CameraMode::Orbit}) {
-                        if (ImGui::Selectable(camera_mode_to_string_view(camera_mode).data(), is_selected)) 
-                            camera->mode = camera_mode;
-                        if (is_selected) ImGui::SetItemDefaultFocus();
-                    }
-                    ImGui::EndCombo();
+            {
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);         
+                ImVec2 current_size;
+                ImGui::Begin("viewport");
+                {
+                    current_size = ImGui::GetContentRegionAvail();
+                    ImGui::Image((void*)(intptr_t)texture_framebuffer_color->get_id(), current_size, ImVec2(0, 1), ImVec2(1, 0));
                 }
-                ImGui::InputFloat("camera-speed", &camera->speed, 1.f, 10.f);
+                static ImVec2 last_size { ImVec2(0, 0) };
+                static bool was_resizing { false };
+                bool size_changed = current_size.x != last_size.x || current_size.y != last_size.y;
+
+                if (size_changed) {
+                    last_size = current_size;
+                    was_resizing = true;
+                }
+                else if (was_resizing && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                    refactor(current_size.x, current_size.y);
+                    was_resizing = false;
+                }
+
+                ImGui::End();
+                ImGui::PopStyleVar(3);
             }
+            
+            {
+                ImGui::Begin("miscellaneous");
+                {
+                    if (ImGui::CollapsingHeader("information", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        ImGui::Text(std::format("fps: {}", 1.f / Time::Timer::delta_time).c_str());
+                        ImGui::Text(std::format("eye: {}", camera_position_to_string_view(*camera).data()).c_str());
+                    }
 
-            if (ImGui::CollapsingHeader("ocean-settings", ImGuiTreeNodeFlags_DefaultOpen)) {}
-        
-            if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
-                constexpr double M_TAU = 2. * std::numbers::pi;
-                
-                constexpr size_t NUM_SAMPLES_SCATTER = 20;
-                static float x_coords_scatter[NUM_SAMPLES_SCATTER] {};
-                static float y_coords_scatter[NUM_SAMPLES_SCATTER] {};
+                    if (ImGui::CollapsingHeader("camera-settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        if (ImGui::BeginCombo("camera-mode", camera_mode_to_string_view(camera->mode).data())) {
+                            bool is_selected {false};
+                            for (auto& camera_mode : {CameraMode::Free, CameraMode::Orbit}) {
+                                if (ImGui::Selectable(camera_mode_to_string_view(camera_mode).data(), is_selected)) 
+                                    camera->set_mode(camera_mode);
+                                if (is_selected) ImGui::SetItemDefaultFocus();
+                            }
+                            ImGui::EndCombo();
+                        }
+                        ImGui::InputFloat("camera-speed", &camera->speed, 1.f, 10.f);
+                    }
 
-                constexpr size_t NUM_SAMPLES_SIGNAL = 100;
-                static float x_coords_signal[NUM_SAMPLES_SIGNAL] {};
-                static float y_coords_signal[NUM_SAMPLES_SIGNAL] {};
+                    if (ImGui::CollapsingHeader("ocean-settings", ImGuiTreeNodeFlags_DefaultOpen)) {}
                 
-                static bool once {false};
-                if (!once) {
-                    once = true;    
-                    {
-                        size_t j {0};
-                        for (float i {0.f}; i < M_TAU; i += M_TAU / (NUM_SAMPLES_SCATTER)) {
-                            std::complex<double> result = Utils::complex_exp(i);
-                            x_coords_scatter[j] = result.real();
-                            y_coords_scatter[j] = result.imag();
-                            j++;
+                    if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        constexpr double M_TAU = 2. * std::numbers::pi;
+                        
+                        constexpr size_t NUM_SAMPLES_SCATTER = 20;
+                        static float x_coords_scatter[NUM_SAMPLES_SCATTER] {};
+                        static float y_coords_scatter[NUM_SAMPLES_SCATTER] {};
+
+                        constexpr size_t NUM_SAMPLES_SIGNAL = 100;
+                        static float x_coords_signal[NUM_SAMPLES_SIGNAL] {};
+                        static float y_coords_signal[NUM_SAMPLES_SIGNAL] {};
+                        
+                        static bool once {false};
+                        if (!once) {
+                            once = true;    
+                            {
+                                size_t j {0};
+                                for (float i {0.f}; i < M_TAU; i += M_TAU / (NUM_SAMPLES_SCATTER)) {
+                                    std::complex<double> result = Utils::complex_exp(i);
+                                    x_coords_scatter[j] = result.real();
+                                    y_coords_scatter[j] = result.imag();
+                                    j++;
+                                }
+
+                                x_coords_scatter[j] = x_coords_scatter[0];
+                                y_coords_scatter[j] = y_coords_scatter[0];
+                            }
+                            
+                            {
+                                size_t j {0};
+                                for (float i {0.f}; i <= M_TAU; i += M_TAU/NUM_SAMPLES_SIGNAL) {
+                                    double signal_out = std::sin(i);
+                                    x_coords_signal[j] = i;
+                                    y_coords_signal[j] = signal_out;
+                                    j++;
+                                }    
+                            }
+                        }
+                        
+                        {
+                            if (ImPlot::BeginPlot("fourier-visual", ImVec2(300, 300), ImPlotFlags_Equal)) {
+                                ImPlot::PlotLine("point", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SCATTER + 1);
+                                ImPlot::EndPlot();
+                            }
+
+                            ImGui::SameLine();
+
+                            if (ImPlot::BeginPlot("signal", ImVec2(300, 300), ImPlotFlags_Equal)) {
+                                ImPlot::PlotLine("line", x_coords_signal, y_coords_signal, NUM_SAMPLES_SIGNAL);
+                                ImPlot::EndPlot();
+                            }
+                        }
+                        
+                        ImGui::Spacing();
+
+                        {
+                            if (ImPlot::BeginPlot("spectrum", ImVec2(607, 300), ImPlotFlags_Equal)) {
+                                ImPlot::EndPlot();
+                            }
                         }
 
-                        x_coords_scatter[j] = x_coords_scatter[0];
-                        y_coords_scatter[j] = y_coords_scatter[0];
-                    }
-                    
-                    {
-                        size_t j {0};
-                        for (float i {0.f}; i <= M_TAU; i += M_TAU/NUM_SAMPLES_SIGNAL) {
-                            double signal_out = std::sin(i);
-                            x_coords_signal[j] = i;
-                            y_coords_signal[j] = signal_out;
-                            j++;
-                        }    
                     }
                 }
-                
-                {
-                    if (ImPlot::BeginPlot("fourier-visual", ImVec2(300, 300), ImPlotFlags_Equal)) {
-                        ImPlot::PlotLine("point", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SCATTER + 1);
-                        ImPlot::EndPlot();
-                    }
-
-                    ImGui::SameLine();
-
-                    if (ImPlot::BeginPlot("signal", ImVec2(300, 300), ImPlotFlags_Equal)) {
-                        ImPlot::PlotLine("line", x_coords_signal, y_coords_signal, NUM_SAMPLES_SIGNAL);
-                        ImPlot::EndPlot();
-                    }
-                }
-                
-                ImGui::Spacing();
-
-                {
-                    if (ImPlot::BeginPlot("spectrum", ImVec2(607, 300), ImPlotFlags_Equal)) {
-                        ImPlot::EndPlot();
-                    }
-                }
-
+                ImGui::End();
             }
         }
-        ImGui::End();
     }
 
     void Renderer::render() {
@@ -297,12 +332,14 @@ namespace Engine::Game {
 
         FBO::unbind();
 
-        ShowDockspace();
         draw_imgui();
     }
 
     void Renderer::refactor(int width, int height) {
+        out("refactor: (width={}; height={})", width, height);
+        if (width <= 0 || height <= 0) return;
         glViewport(0, 0, width, height);
+        framebuffer->refactor(width, height);
         camera->refactor(width, height);
     }
 }

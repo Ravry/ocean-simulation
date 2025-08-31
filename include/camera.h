@@ -35,6 +35,7 @@ namespace Engine {
             Camera(float width, float height, CameraMode mode = Free);
             void update(GLFWwindow* window, float delta_time);
             void refactor(float width, float height);
+            void set_mode(CameraMode camera_mode);
 
             glm::mat4 get_projection() { return projection; }
     };

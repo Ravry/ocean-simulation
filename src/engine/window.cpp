@@ -18,7 +18,7 @@ namespace Engine {
         glfwSetKeyCallback(window, Input::key_callback);
         glfwSetMouseButtonCallback(window, Input::mouse_button_callback);
         glfwSetCursorPosCallback(window, Input::mouse_callback);
-        glfwSetWindowSizeCallback(window, [] (GLFWwindow* window, int width, int height) { renderer->refactor(width, height); });
+        glfwSetWindowSizeCallback(window, [] (GLFWwindow* window, int width, int height) {});
 
         glfwMakeContextCurrent(window);
 

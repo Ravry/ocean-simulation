@@ -25,10 +25,12 @@ namespace Engine {
         Texture(const TextureCreateInfo& create_info);
         ~Texture();
         void bind(GLuint unit = 0);
+        void refactor(unsigned int width, unsigned int height);
         unsigned int get_id() { return id; }
 
     private:
         unsigned int id;
         GLenum target;
+        TextureCreateInfo create_info;
     };
 }

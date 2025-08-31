@@ -5,6 +5,12 @@ namespace Engine {
         projection = glm::perspective(glm::radians(60.f), width/height, .01f, 100.f);
     }
 
+    static bool mode_change_pending { false };
+    void Camera::set_mode(CameraMode camera_mode) {
+        if (camera_mode == CameraMode::Free) mode_change_pending = true;
+        mode = camera_mode;
+    }
+
     void Camera::update(GLFWwindow* window, float delta_time) {
         static bool cursor_enabled {false};
         
@@ -18,10 +24,11 @@ namespace Engine {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
 
-        if (cursor_enabled) return;
-
         switch (mode) {
-            case Free: {
+            case Free: {       
+                if (cursor_enabled && !mode_change_pending) return;
+                mode_change_pending = false;
+                
                 glm::vec3 input = glm::vec3(0.f);
                 if (Input::is_key_held_down(GLFW_KEY_W)) input.z += 1; 
                 if (Input::is_key_held_down(GLFW_KEY_S)) input.z -= 1; 

@@ -1,5 +1,6 @@
 #pragma once
 #include "glad/glad.h"
+#include "texture.h"
 
 namespace Engine {
     class GL_Object {
@@ -26,11 +27,20 @@ namespace Engine {
     };
 
     class FBO : public GL_Object {
+        struct Attachment { 
+            GLenum type;
+            GLenum attachment;
+            void* attachment_ptr;
+        };
+
+        private:
+            std::vector<Attachment> attachments;
         public:
             FBO();
             ~FBO();
-            void attach(GLenum attachment, GLuint texture);
+            void attach(GLenum attachment, Texture* texture);
             void bind(GLenum target = GL_FRAMEBUFFER);
+            void refactor(unsigned int width, unsigned int height);
             static void unbind();
     };
 
