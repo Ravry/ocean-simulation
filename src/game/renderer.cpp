@@ -194,7 +194,11 @@ namespace Engine::Game {
         static double y_coords_scatter[NUM_SAMPLES_SIGNAL + 1] {};
 
         static double frequency_spectrum[(NUM_SAMPLES_SIGNAL/2) + 1] {};
+        static std::complex<double> complex_engergy_spectrum[(NUM_SAMPLES_SIGNAL/2) + 1] {};
         static double energy_spectrum[(NUM_SAMPLES_SIGNAL/2) + 1] {};
+
+        static double x_coords_ift_signal[NUM_SAMPLES_SIGNAL + 1] {};
+        static double y_coords_ift_signal[NUM_SAMPLES_SIGNAL + 1] {}; 
         
         {
             static bool once {false};
@@ -225,6 +229,7 @@ namespace Engine::Game {
 
         if (timer >= DELTA_TIME_FOR_DESIRED_FPS)
         {
+            static bool ift_done {false};
             timer = 0;
             if (j <= NUM_SAMPLES_SIGNAL/2) {
                 double frequency = (double)j * (sampling_rate / NUM_SAMPLES_SIGNAL);
@@ -244,8 +249,25 @@ namespace Engine::Game {
                 double magnitude = std::abs(sum);
                 
                 frequency_spectrum[j] = frequency;
+                complex_engergy_spectrum[j] = sum / static_cast<double>(NUM_SAMPLES_SIGNAL + 1);
                 energy_spectrum[j] = magnitude / (NUM_SAMPLES_SIGNAL + 1);
                 j++;
+            }
+            else if (!ift_done) {
+                ift_done = true;
+                for (size_t i {0}; i <= NUM_SAMPLES_SIGNAL; i++) {
+                    double signal_in = ((double)i/NUM_SAMPLES_SIGNAL) * SIGNAL_TOTAL_DURATION;
+                    std::complex<double> sum_complex(0, 0);
+                    for (size_t k {0}; k <= NUM_SAMPLES_SIGNAL/2; k++) {
+                        double frequency = frequency_spectrum[k];
+                        std::complex<double> coefficient = complex_engergy_spectrum[k];
+                        double weight = (k == 0 || k == NUM_SAMPLES_SIGNAL/2) ? 1.0 : 2.0;
+                        sum_complex += weight * coefficient * Utils::complex_exp(frequency, signal_in);
+                    }
+        
+                    x_coords_ift_signal[i] = signal_in;
+                    y_coords_ift_signal[i] = sum_complex.real();
+                }
             }
         }
     
@@ -253,7 +275,7 @@ namespace Engine::Game {
             
         if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
             {
-                if (ImPlot::BeginPlot("fourier-visual", ImVec2(300, 300), ImPlotFlags_Equal)) {
+                if (ImPlot::BeginPlot("forward-fourier-transform", ImVec2(300, 300), ImPlotFlags_Equal)) {
                     ImPlot::PlotLine("line", x_coords_scatter, y_coords_scatter, NUM_SAMPLES_SIGNAL + 1);
                     ImPlot::PlotScatter("scatter", x_coord_center_of_mass, y_coord_center_of_mass, 1);
                     ImPlot::EndPlot();
@@ -270,8 +292,13 @@ namespace Engine::Game {
             ImGui::Spacing();
 
             {
-                if (ImPlot::BeginPlot("spectrum", ImVec2(607, 300), ImPlotFlags_Equal)) {
+                if (ImPlot::BeginPlot("frequency-domain-spectrum (dft)", ImVec2(607, 200), ImPlotFlags_Equal)) {
                     ImPlot::PlotLine("line", frequency_spectrum, energy_spectrum, (NUM_SAMPLES_SIGNAL/2) + 1);
+                    ImPlot::EndPlot();
+                }
+
+                if (ImPlot::BeginPlot("time-domain-spectrum (ift)", ImVec2(607, 200), ImPlotFlags_Equal)) {
+                    ImPlot::PlotLine("line", x_coords_ift_signal, y_coords_ift_signal, NUM_SAMPLES_SIGNAL + 1);
                     ImPlot::EndPlot();
                 }
             }
