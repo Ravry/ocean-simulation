@@ -67,6 +67,31 @@ namespace Engine {
         }
     }
 
+    void FBO::status() {
+        GLenum status = glCheckNamedFramebufferStatus(id, GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            std::cerr << "Framebuffer not complete! Status: " << status << std::endl;
+            switch (status) {
+                case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+                    std::cerr << "Incomplete attachment" << std::endl;
+                    break;
+                case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+                    std::cerr << "Missing attachment" << std::endl;
+                    break;
+                case GL_FRAMEBUFFER_UNSUPPORTED:
+                    std::cerr << "Unsupported framebuffer format" << std::endl;
+                    break;
+                case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+                    std::cerr << "Incomplete multisample" << std::endl;
+                    break;
+            }
+        }
+    }
+
+    void FBO::set_draw_buffers(const std::vector<GLenum>& buffers) {
+        glNamedFramebufferDrawBuffers(id, static_cast<GLsizei>(buffers.size()), buffers.data());
+    }
+
     void FBO::unbind() {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }

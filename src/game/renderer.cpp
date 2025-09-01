@@ -1,85 +1,61 @@
 #include "renderer.h"
 
 namespace Engine::Game {
-    struct Vertex {
-        glm::vec3 position;
-    };
-
-    std::unique_ptr<FBO> framebuffer;
     std::unique_ptr<Texture> texture_framebuffer_color;
     std::unique_ptr<Texture> texture_framebuffer_depth;
-
-
+    std::unique_ptr<FBO> framebuffer;
     std::unique_ptr<VAO> vao;
     std::unique_ptr<Buffer> vbo;
     std::unique_ptr<Buffer> ebo;
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices; 
+    Mesh mesh_plane;
 
-    Renderer::Renderer(float width, float height) {
-        camera = std::make_unique<Camera>(width, height, CameraMode::Orbit, 70.f);
+    Renderer::Renderer(float width, float height) {        
+        //SHADER-INIT
+        {
+            shaders["default"] = Shader(
+                ASSETS_DIR "shaders/default/vert.glsl",
+                ASSETS_DIR "shaders/default/frag.glsl"
+            );
 
-        shaders["default"] = Shader(
-            ASSETS_DIR "shaders/default/vert.glsl",
-            ASSETS_DIR "shaders/default/frag.glsl"
-        );
+            shaders["ocean"] = Shader(
+                ASSETS_DIR "shaders/ocean/vert.glsl",
+                ASSETS_DIR "shaders/ocean/frag.glsl"
+            );
+        }
 
-        shaders["ocean"] = Shader(
-            ASSETS_DIR "shaders/ocean/vert.glsl",
-            ASSETS_DIR "shaders/ocean/frag.glsl"
-        );
-
-        framebuffer = std::make_unique<FBO>();
+        //FRAMEBUFFER-INIT
+        {
+            framebuffer = std::make_unique<FBO>();
         
-        {
-            Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
-            create_info.width = width;
-            create_info.height = height;
-            create_info.format = GL_RGB8;
-            create_info.filter = GL_LINEAR;
-            create_info.wrap = GL_CLAMP_TO_EDGE;
-            texture_framebuffer_color = std::make_unique<Texture>(create_info);
-        }
-
-        {
-            Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
-            create_info.width = width;
-            create_info.height = height;
-            create_info.format = GL_DEPTH_COMPONENT24;
-            create_info.filter = GL_LINEAR;
-            create_info.wrap = GL_CLAMP_TO_EDGE;
-            texture_framebuffer_depth = std::make_unique<Texture>(create_info);  
-        }
-
-        framebuffer->attach(GL_COLOR_ATTACHMENT0, texture_framebuffer_color.get());
-        framebuffer->attach(GL_DEPTH_ATTACHMENT, texture_framebuffer_depth.get());
-            
-        GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
-        glNamedFramebufferDrawBuffers(framebuffer->get_id(), 1, drawBuffers);
-
-        GLenum status = glCheckNamedFramebufferStatus(framebuffer->get_id(), GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            std::cerr << "Framebuffer not complete! Status: " << status << std::endl;
-            
-            // Print more detailed error info
-            switch (status) {
-                case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-                    std::cerr << "Incomplete attachment" << std::endl;
-                    break;
-                case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
-                    std::cerr << "Missing attachment" << std::endl;
-                    break;
-                case GL_FRAMEBUFFER_UNSUPPORTED:
-                    std::cerr << "Unsupported framebuffer format" << std::endl;
-                    break;
-                case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
-                    std::cerr << "Incomplete multisample" << std::endl;
-                    break;
+            {
+                Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
+                create_info.width = width;
+                create_info.height = height;
+                create_info.format = GL_RGB8;
+                create_info.filter = GL_LINEAR;
+                create_info.wrap = GL_CLAMP_TO_EDGE;
+                texture_framebuffer_color = std::make_unique<Texture>(create_info);
             }
+
+            {
+                Texture::TextureCreateInfo create_info {GL_TEXTURE_2D};
+                create_info.width = width;
+                create_info.height = height;
+                create_info.format = GL_DEPTH_COMPONENT24;
+                create_info.filter = GL_LINEAR;
+                create_info.wrap = GL_CLAMP_TO_EDGE;
+                texture_framebuffer_depth = std::make_unique<Texture>(create_info);  
+            }
+
+            framebuffer->attach(GL_COLOR_ATTACHMENT0, texture_framebuffer_color.get());
+            framebuffer->attach(GL_DEPTH_ATTACHMENT, texture_framebuffer_depth.get());
+            framebuffer->set_draw_buffers({ GL_COLOR_ATTACHMENT0 });
+            framebuffer->status();
         }
-
-
+        
+        //PLANE-INIT
         {
+
             constexpr size_t SIZE { 20 };
             constexpr size_t HALF_SIZE { SIZE / 2 };
             constexpr size_t RESOLUTION { 4 };
@@ -90,7 +66,7 @@ namespace Engine::Game {
                     float _x = static_cast<float>(x)/RESOLUTION;
                     float _z = static_cast<float>(z)/RESOLUTION;
                     
-                    vertices.push_back(Vertex {
+                    mesh_plane.vertices.push_back(Vertex {
                         glm::vec3{_x - HALF_SIZE, 0, _z - HALF_SIZE}
                     });
                 }
@@ -103,13 +79,13 @@ namespace Engine::Game {
                     uint32_t bottomLeft  = topLeft + (REAL_SIZE + 1);
                     uint32_t bottomRight = bottomLeft + 1;
 
-                    indices.push_back(topLeft);
-                    indices.push_back(bottomLeft);
-                    indices.push_back(topRight);
+                    mesh_plane.indices.push_back(topLeft);
+                    mesh_plane.indices.push_back(bottomLeft);
+                    mesh_plane.indices.push_back(topRight);
 
-                    indices.push_back(topRight);
-                    indices.push_back(bottomLeft);
-                    indices.push_back(bottomRight);;
+                    mesh_plane.indices.push_back(topRight);
+                    mesh_plane.indices.push_back(bottomLeft);
+                    mesh_plane.indices.push_back(bottomRight);;
                 }
             }
 
@@ -117,21 +93,29 @@ namespace Engine::Game {
             vbo = std::make_unique<Buffer>();
             ebo = std::make_unique<Buffer>();
         
-            vbo->data(vertices.data(), vertices.size() * sizeof(Vertex));
-            ebo->data(indices.data(), indices.size() * sizeof(uint32_t));
+            vbo->data(mesh_plane.vertices.data(), mesh_plane.vertices.size() * sizeof(Vertex));
+            ebo->data(mesh_plane.indices.data(), mesh_plane.indices.size() * sizeof(uint32_t));
             
-            vao->attrib(0, 3, GL_FLOAT, GL_FALSE, 0);
+            vao->attrib(0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, position));
             vao->bind_buffers(vbo->get_id(), ebo->get_id());            
         }
 
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);  
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
-        glClearColor(.12f, .12f, .12f, 1.f);
-        glViewport(0, 0, width, height);
+        //GL-INIT
+        {
+            glEnable(GL_CULL_FACE);
+            glCullFace(GL_BACK);
+            glFrontFace(GL_CCW);
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);  
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
+            glClearColor(.12f, .12f, .12f, 1.f);
+            glViewport(0, 0, width, height);
+        }
+    
+        //ENGINE-INIT
+        {
+            camera = std::make_unique<Camera>(width, height, CameraMode::Orbit, 70.f);
+        }
     }
         
     void Renderer::update(GLFWwindow* window, float delta_time) {
@@ -177,7 +161,7 @@ namespace Engine::Game {
     void draw_imgui_ocean_settings_header() {
         if (ImGui::CollapsingHeader("ocean-settings", ImGuiTreeNodeFlags_DefaultOpen)) {}
     }
-
+    
     void draw_imgui_graph_preview_header() {
         static double timer = 0.f;
         timer += Time::Timer::delta_time;
@@ -247,7 +231,7 @@ namespace Engine::Game {
                 y_coord_center_of_mass[0] = sum.imag() / (NUM_SAMPLES_SIGNAL + 1);
                 
                 double magnitude = std::abs(sum);
-                
+
                 frequency_spectrum[j] = frequency;
                 complex_engergy_spectrum[j] = sum / static_cast<double>(NUM_SAMPLES_SIGNAL + 1);
                 energy_spectrum[j] = magnitude / (NUM_SAMPLES_SIGNAL + 1);
@@ -264,14 +248,12 @@ namespace Engine::Game {
                         double weight = (k == 0 || k == NUM_SAMPLES_SIGNAL/2) ? 1.0 : 2.0;
                         sum_complex += weight * coefficient * Utils::complex_exp(frequency, signal_in);
                     }
-        
+                    
                     x_coords_ift_signal[i] = signal_in;
                     y_coords_ift_signal[i] = sum_complex.real();
                 }
             }
         }
-    
-
             
         if (ImGui::CollapsingHeader("graph-preview", ImGuiTreeNodeFlags_DefaultOpen)) {
             {
@@ -302,7 +284,6 @@ namespace Engine::Game {
                     ImPlot::EndPlot();
                 }
             }
-
         }
     }
 
@@ -407,7 +388,7 @@ namespace Engine::Game {
             .set_uniform_float("time", glfwGetTime())
             .use();
         vao->bind();
-        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, mesh_plane.indices.size(), GL_UNSIGNED_INT, 0);
         Shader::unuse();
 
         FBO::unbind();

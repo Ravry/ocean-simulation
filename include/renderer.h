@@ -9,6 +9,7 @@
 #include "texture.h"
 #include "camera.h"
 #include "utils.h"
+#include "mesh.h"
 
 namespace Engine {
     namespace Game {

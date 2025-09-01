@@ -41,6 +41,8 @@ namespace Engine {
             void attach(GLenum attachment, Texture* texture);
             void bind(GLenum target = GL_FRAMEBUFFER);
             void refactor(unsigned int width, unsigned int height);
+            void set_draw_buffers(const std::vector<GLenum>& buffers);
+            void status();
             static void unbind();
     };
 
